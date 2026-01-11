@@ -348,7 +348,7 @@ export default function useAddProduct(uploadFunction) {
 ```
 ---
 
-## 🔐 `.env` file content:
+## 🔐 `.env` File Content:
 
 ```
 # For secure data
