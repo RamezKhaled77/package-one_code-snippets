@@ -346,3 +346,18 @@ export default function useAddProduct(uploadFunction) {
 }
 
 ```
+---
+
+## 🔐 `.env` file content:
+
+```
+# For secure data
+
+VITE_GOOGLE_API_URL=https://script.google.com/macros/s/AKfycbwyMMVSWDE42EA_d4OoDe9kbraLHadD-MrP6K8BEREpvp5VI5iqRL1HKtIpeRG9p5mmUQ/exec
+VITE_CLOUDINARY_URL=https://api.cloudinary.com/v1_1/dcrvwnrds/image/upload
+VITE_CLOUDINARY_PRESET=my_store_preset
+VITE_ADMIN_PASSWORD=admin@2026
+VITE_EMAILJS_SERVICE_ID=service_5madjur
+VITE_EMAILJS_TEMPLATE_ID=template_ore4wca
+VITE_EMAILJS_PUBLIC_KEY=YkpACEqDGtHiyonfJ
+```
