@@ -59,3 +59,61 @@ function doPost(e) {
 }
 
 /**
+ * Handle GET requests for fetching and filtering products
+ */
+function doGet(e) {
+  try {
+    const ss = SpreadsheetApp.openById("1BCjqtFYoPdVS6ruWJBx9lILGrfItbEmzS8B8kAXGLh4");
+    const sheet = ss.getSheetByName("products");
+    const rows = sheet.getDataRange().getValues();
+
+    const categoryFilter = e.parameter.category;
+    const bestSellerFilter = e.parameter.bestSeller; // Receive TRUE to browser
+
+    const results = [];
+
+    // Start from 1 to skip the titles
+    for (let i = 1; i < rows.length; i++) {
+      const id = rows[i][0];
+      if (!id) continue; // Skip the empty rows
+
+      const name = rows[i][1];
+      const price = rows[i][2];
+      const category = rows[i][3];
+      const isBestSeller = rows[i][6]; // 'G' row
+      const image = rows[i][7];
+
+      let isMatch = true;
+
+      // Category filtering
+      if (categoryFilter && category !== categoryFilter) isMatch = false;
+
+      // Best selling filtering
+      // Check sheet value & request value
+      if (bestSellerFilter === "true" && isBestSeller !== true && isBestSeller !== "TRUE") {
+        isMatch = false;
+      }
+
+      if (isMatch) {
+        results.push({
+          id: id,
+          name: name,
+          price: price,
+          category: category,
+          stock: rows[i][4],
+          description: rows[i][5],
+          bestSeller: isBestSeller,
+          image: image
+        });
+      }
+    }
+
+    return ContentService.createTextOutput(JSON.stringify(results))
+      .setMimeType(ContentService.MimeType.JSON);
+
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({error: err.message}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+```
