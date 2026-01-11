@@ -1,7 +1,7 @@
 
 # package-one_code-snippets
 
-## Google sheet - (App Script code):
+## 📰 Google sheet - (App Script code):
 ```
 /**
  * Handle POST requests from the React application
@@ -120,9 +120,9 @@ function doGet(e) {
 
 ---
 
-## Hooks:
+## ⚓ Hooks:
 
-### useAllProducts Hook:
+### `useAllProducts` Hook:
 > To fetch all the products
 
 ```
