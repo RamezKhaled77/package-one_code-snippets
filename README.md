@@ -4,114 +4,130 @@
 ## 📰 Google sheet - (App Script code):
 ```
 /**
- * Handle POST requests from the React application
- * @param {Object} e - The event object containing postData
+ * Handle POST requests to add new products.
+ * Fixed: This version handles manual row deletions by searching for the 
+ * last actual non-empty cell instead of relying on sheet.getLastRow().
  */
 function doPost(e) {
   try {
-    // Connect to the specific Spreadsheet and Sheet
+    // 1. Connect to the Spreadsheet and target the 'products' sheet
     const ss = SpreadsheetApp.openById("1BCjqtFYoPdVS6ruWJBx9lILGrfItbEmzS8B8kAXGLh4");
     const sheet = ss.getSheetByName("products");
+    
+    // 2. Parse the incoming JSON data from the request body
+    const rawContent = e.postData.contents;
+    const data = JSON.parse(rawContent);
 
-    // Parse the JSON string sent from the frontend
-    const data = JSON.parse(e.postData.contents);
+    // 3. Generate a unique ID for the product
+    const productId = "ID-" + Date.now();
 
-    // Generate a unique Product ID using timestamp
-    const productId = "ID-" + new Date().getTime();
-
-    // Logic to find the actual last row with data in Column B (Name)
-    // This prevents overwriting or skipping rows due to formatting
+    // 4. FIND THE NEXT AVAILABLE ROW (Robust Method)
+    // We fetch all values in Column B (Product Name) to find the actual last filled row.
+    // This avoids issues where getLastRow() returns "ghost rows" after manual deletion.
     const nameColumnValues = sheet.getRange("B:B").getValues();
-    let lastRowWithData = 0;
+    let lastActiveRow = 0;
+    
+    // Loop backwards from the bottom to find the first cell that is not empty
     for (let i = nameColumnValues.length - 1; i >= 0; i--) {
-      if (nameColumnValues[i][0] !== "") {
-        lastRowWithData = i + 1;
+      if (nameColumnValues[i][0] !== "" && nameColumnValues[i][0] !== undefined) {
+        lastActiveRow = i + 1;
         break;
       }
     }
+    
+    // Determine the target row: if sheet is empty start at row 2, else next row
+    const nextRow = (lastActiveRow < 1) ? 2 : lastActiveRow + 1;
 
-    // Determine target row (starting from row 2 if sheet is empty)
-    const nextRow = Math.max(lastRowWithData + 1, 2);
-
-    // Map data to the correct columns (A to I)
+    // 5. Prepare the data array to match Sheet Columns A to I
     const rowValues = [[
-      productId,         // Column A: ID
-      data.name,         // Column B: Name
-      data.price,        // Column C: Price
-      data.category,     // Column D: Category
-      data.stock,        // Column E: Stock
-      data.description,  // Column F: Description
-      data.bestSeller,   // Column G: Best Seller (True/False)
-      data.image,        // Column H: Image URL
-      new Date()         // Column I: System Timestamp
+      productId,                // Column A: ID
+      data.name || "Untitled",  // Column B: Name
+      data.price || 0,          // Column C: Price
+      data.category || "Uncategorized", // Column D: Category
+      data.stock || 0,          // Column E: Stock
+      data.description || "",   // Column F: Description
+      data.bestSeller || false, // Column G: Best Seller (Boolean)
+      data.image || "",         // Column H: Image URL
+      new Date()                // Column I: Timestamp
     ]];
 
-    // Save data to sheet
+    // 6. Write the data to the sheet at the calculated next row
     sheet.getRange(nextRow, 1, 1, 9).setValues(rowValues);
 
     return ContentService.createTextOutput("Success")
       .setMimeType(ContentService.MimeType.TEXT);
 
   } catch (err) {
+    // Log errors in the Apps Script Execution console
+    console.error("Error in doPost: " + err.message);
     return ContentService.createTextOutput("Error: " + err.message)
       .setMimeType(ContentService.MimeType.TEXT);
   }
 }
 
 /**
- * Handle GET requests for fetching and filtering products
+ * Handle GET requests to fetch and filter product data.
  */
 function doGet(e) {
   try {
     const ss = SpreadsheetApp.openById("1BCjqtFYoPdVS6ruWJBx9lILGrfItbEmzS8B8kAXGLh4");
     const sheet = ss.getSheetByName("products");
+    
+    // Get all data from the sheet
     const rows = sheet.getDataRange().getValues();
-
+    
+    // Extract query parameters from the URL
     const categoryFilter = e.parameter.category;
-    const bestSellerFilter = e.parameter.bestSeller; // Receive TRUE to browser
+    const bestSellerFilter = e.parameter.bestSeller;
 
     const results = [];
-
-    // Start from 1 to skip the titles
+    
+    // Loop through rows starting from index 1 (skipping header row)
     for (let i = 1; i < rows.length; i++) {
       const id = rows[i][0];
-      if (!id) continue; // Skip the empty rows
-
       const name = rows[i][1];
+      
+      // CRITICAL: Skip empty or corrupted rows during fetch
+      if (!id || !name) continue; 
+
       const price = rows[i][2];
       const category = rows[i][3];
-      const isBestSeller = rows[i][6]; // 'G' row
+      const stock = rows[i][4];
+      const description = rows[i][5];
+      const isBestSeller = rows[i][6];
       const image = rows[i][7];
 
       let isMatch = true;
 
-      // Category filtering
+      // Apply category filter if provided
       if (categoryFilter && category !== categoryFilter) isMatch = false;
-
-      // Best selling filtering
-      // Check sheet value & request value
-      if (bestSellerFilter === "true" && isBestSeller !== true && isBestSeller !== "TRUE") {
+      
+      // Apply Best Seller filter if requested as "true"
+      if (bestSellerFilter === "true" && (isBestSeller !== true && isBestSeller !== "TRUE")) {
         isMatch = false;
       }
 
+      // If product matches all filters, add to results array
       if (isMatch) {
         results.push({
           id: id,
           name: name,
           price: price,
           category: category,
-          stock: rows[i][4],
-          description: rows[i][5],
+          stock: stock,
+          description: description,
           bestSeller: isBestSeller,
           image: image
         });
       }
     }
 
+    // Return the filtered results as a JSON string
     return ContentService.createTextOutput(JSON.stringify(results))
       .setMimeType(ContentService.MimeType.JSON);
-
+      
   } catch (err) {
+    console.error("Error in doGet: " + err.message);
     return ContentService.createTextOutput(JSON.stringify({error: err.message}))
       .setMimeType(ContentService.MimeType.JSON);
   }
