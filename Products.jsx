@@ -104,7 +104,7 @@ function Products() {
     isLoading: catLoading,
     isError: catIsError,
     error: catError,
-  } = useProducts(activeCategory, !isAllActive);
+  } = useProducts(activeCategory, !isAllActive, false);
 
   // To determine which products to show
   const filteredProducts = useMemo(() => {
@@ -205,3 +205,4 @@ function Products() {
 }
 
 export default Products;
+
