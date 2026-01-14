@@ -255,6 +255,7 @@ export default function useAllProducts(enabled = true) {
 
 ### `useProducts` Hook:
 > To fetch products by category
+> To fetch the best-selling products `const { data: bestSellers, error } = useProducts("", true, true);`
 
 ```
 import { useQuery } from "@tanstack/react-query";
