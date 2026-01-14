@@ -120,7 +120,7 @@ function doGet(e) {
 
 ---
 
-## `products.js file` in api folder:
+## `products.js` file in api folder:
 > `getData` function to handle the api
 
 ```
