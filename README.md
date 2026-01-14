@@ -120,88 +120,45 @@ function doGet(e) {
 
 ---
 
-## ⚓ Hooks:
-
-### `useAllProducts` Hook:
-> To fetch all the products
+## `products.js file` in api folder:
+> `getData` function to handle the api
 
 ```
-import { useEffect, useMemo } from "react";
-import { useQueryClient, useQuery } from "@tanstack/react-query";
-import { getData } from "../api/products";
-
-const ALL_CATEGORIES = [
-  "دفاتر",
-  "أقلام",
-  "شنط",
-  "مجات",
-  "منظمات مكتب",
-  "باكيدچات أو بوكسات",
-  "أخرى",
-];
-
-/**
- * Hook to fetch all products and prefetch category-specific data
+/*
+ * Function for fetching data from Google Apps Script
+ * Supports optional category and bestSeller filtering
  */
-export default function useAllProducts(enabled = true) {
-  const queryClient = useQueryClient();
+export async function getData(category = "", bestSeller = false) {
+  // Google Apps Script URL
+  const GOOGLE_API_URL =
+    "https://script.google.com/macros/s/AKfycbwyMMVSWDE42EA_d4OoDe9kbraLHadD-MrP6K8BEREpvp5VI5iqRL1HKtIpeRG9p5mmUQ/exec";
 
-  // Fetch main "all" data
-  const {
-    data: mainAllData,
-    isError,
-    error,
-  } = useQuery({
-    queryKey: ["products", ""],
-    queryFn: () => getData(""),
-    enabled: enabled,
+  // Create a new URLSearchParams object
+  const params = new URLSearchParams();
 
-    // Keep consistent with useProducts logic
-    staleTime: 1000 * 60 * 1,
-    gcTime: 1000 * 60 * 30,
-    refetchOnWindowFocus: true,
-    refetchOnMount: true,
-  });
+  // If a category is specified, add it to the parameters
+  if (category && category !== "الكل") {
+    params.append("category", category);
+  }
 
-  // Prefetch all categories data in the background to ensure smooth navigation
-  useEffect(() => {
-    if (!enabled) return;
+  // If bestSeller is true, add it to the parameters
+  if (bestSeller) {
+    params.append("bestSeller", "true");
+  }
 
-    ALL_CATEGORIES.forEach((cat) => {
-      // Only prefetch if data is not already in cache or is stale
-      if (!queryClient.getQueryData(["products", cat])) {
-        queryClient.prefetchQuery({
-          queryKey: ["products", cat],
-          queryFn: () => getData(cat),
-          staleTime: 1000 * 60 * 1,
-        });
-      }
-    });
-  }, [enabled, queryClient]);
+  // Convert the parameters to a query string
+  const queryString = params.toString();
+  const url = queryString ? `${GOOGLE_API_URL}?${queryString}` : GOOGLE_API_URL;
 
-  // Aggregate products from the most reliable source available
-  const products = useMemo(() => {
-    if (!enabled) return [];
+  const res = await fetch(url);
 
-    // Priority 1: Current fetch result
-    if (mainAllData) return mainAllData;
+  if (!res.ok) throw new Error("Failed to fetch data from Google Sheets");
 
-    // Priority 2: Existing cache for the "all" key
-    const allCached = queryClient.getQueryData(["products", ""]);
-    if (allCached) return allCached;
-
-    // Priority 3: Combine data from individual category caches
-    return ALL_CATEGORIES.flatMap(
-      (cat) => queryClient.getQueryData(["products", cat]) || []
-    );
-  }, [enabled, queryClient, mainAllData]);
-
-  const isLoading = enabled && products.length === 0;
-
-  return { products, isLoading, isError, error };
+  return res.json();
 }
 
 ```
+
 ---
 
 ## ⚓ Hooks:
@@ -247,16 +204,19 @@ export default function useAllProducts(enabled = true) {
     refetchOnMount: true,
   });
 
-  // Prefetch all categories data in the background to ensure smooth navigation
+  // Prefetch all categories data in the background
   useEffect(() => {
     if (!enabled) return;
 
     ALL_CATEGORIES.forEach((cat) => {
-      // Only prefetch if data is not already in cache or is stale
-      if (!queryClient.getQueryData(["products", cat])) {
+      // IMPORTANT: Unified queryKey to match useProducts hook structure
+      // This ensures that when a user switches to a category, the data is already in cache
+      const categoryKey = ["products", { category: cat, bestSeller: false }];
+
+      if (!queryClient.getQueryData(categoryKey)) {
         queryClient.prefetchQuery({
-          queryKey: ["products", cat],
-          queryFn: () => getData(cat),
+          queryKey: categoryKey,
+          queryFn: () => getData(cat, false),
           staleTime: 1000 * 60 * 1,
         });
       }
@@ -267,23 +227,28 @@ export default function useAllProducts(enabled = true) {
   const products = useMemo(() => {
     if (!enabled) return [];
 
-    // Priority 1: Current fetch result
+    // Priority 1: Current fetch result for "All"
     if (mainAllData) return mainAllData;
 
     // Priority 2: Existing cache for the "all" key
     const allCached = queryClient.getQueryData(["products", ""]);
     if (allCached) return allCached;
 
-    // Priority 3: Combine data from individual category caches
-    return ALL_CATEGORIES.flatMap(
-      (cat) => queryClient.getQueryData(["products", cat]) || []
-    );
+    // Priority 3: Combine data from individual category caches using the unified Object Key
+    return ALL_CATEGORIES.flatMap((cat) => {
+      const cachedData = queryClient.getQueryData([
+        "products",
+        { category: cat, bestSeller: false },
+      ]);
+      return cachedData || [];
+    });
   }, [enabled, queryClient, mainAllData]);
 
   const isLoading = enabled && products.length === 0;
 
   return { products, isLoading, isError, error };
 }
+
 
 ```
 ---
